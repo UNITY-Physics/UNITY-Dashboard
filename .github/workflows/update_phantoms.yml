@@ -1,0 +1,41 @@
+name: Update all_phantoms.csv
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # Runs daily at 2:00 AM UTC
+  workflow_dispatch:     # Allows manual triggering from GitHub
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    env:
+      FW_CLI_API_KEY: ${{ secrets.FW_CLI_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas tqdm numpy pydicom flywheel-sdk
+          curl https://storage.googleapis.com/flywheel-dist/fw-cli/stable/install.sh | bash
+
+      - name: Run the script
+        run: |
+          mkdir -p src/data/tmp
+          python main.py -apikey $FW_CLI_API_KEY
+
+      - name: Commit and push updated CSV
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add src/data/all_phantoms.csv
+          git commit -m "Update all_phantoms.csv [automated]" || echo "No changes to commit"
+          git push
