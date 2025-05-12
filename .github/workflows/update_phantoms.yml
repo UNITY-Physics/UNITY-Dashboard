@@ -1,4 +1,4 @@
-name: Update all_phantoms.csv
+name: Update phantom stats
 
 on:
   schedule:
