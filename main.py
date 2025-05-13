@@ -140,5 +140,15 @@ for filename in os.listdir(directory) :
 # Concatenate all DataFrames into one
 combined_df = pd.concat(dfs, ignore_index=True)
 
-print(combined_df)
-combined_df.to_csv(os.path.join(os.getcwd(),'src','data', "all_phantoms.csv"),index=False)
+with open('assets/site_phantom_key.json') as f:
+    site_phantom_key = json.load(f)
+
+# Invert the JSON: value -> key
+value_to_key = {"P"+v: k for k, v in site_map.items()}
+# Map "Site" column to get the keys
+df["Location"] = df["Site"].map(value_to_key)
+
+
+combined_df_reordered = df.loc[:, ['Site','Location','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']]
+print(combined_df_reordered)
+combined_df_reordered.to_csv(os.path.join(os.getcwd(),'src','data', "RWE_PSNR.csv"),index=False)
