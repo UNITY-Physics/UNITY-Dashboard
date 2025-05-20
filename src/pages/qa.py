@@ -11,7 +11,7 @@ qa_data = pd.read_csv('data/RWE_PSNR_df.csv')
 qa_data['Date'] = pd.to_datetime(qa_data['Session'], format='%Y%m')
 
 
-sites = qa_data['Site'].unique()
+sites = qa_data['Location'].unique()
 # metrics = ['Scanner Frequency', 'Temperature', 'Timestamp', 'SNR', 'T2w contrast ratio', 'Geometric Distortion AP', 'Geometric Distortion SI', 'Geometric Distortion LR']  # Assuming these are the metrics
 metrics = ['PSNR', 'MSE', 'NMI', 'SSIM', 'Temperature']  # 'SoftwareVersion',
 
@@ -26,7 +26,7 @@ layout = html.Div([
 
     html.Div([
     html.B('Select a site:'),
-    dcc.Dropdown(id='qa-site-dropdown', options=[{'label': site, 'value': site} for site in qa_data['Site'].unique()], value=qa_data['Site'][0]),
+    dcc.Dropdown(id='qa-site-dropdown', options=[{'label': site, 'value': site} for site in qa_data['Location'].unique()], value=qa_data['Location'][0]),
     dcc.Graph(id='qa-time-series-graph')
     ], className='data-box')
 
@@ -47,7 +47,7 @@ def register_callbacks(app):
     )
     def update_charts(selected_site, selected_metric):
         # Filter data for the selected site
-        filtered_data = qa_data[qa_data['Site'] == selected_site]
+        filtered_data = qa_data[qa_data['Location'] == selected_site]
         filtered_data.to_csv('./data/tmp_output.csv', index=False)
 
         # Generate time series figure
@@ -59,15 +59,15 @@ def register_callbacks(app):
             title=f'{selected_metric} Over Time for {selected_site}')
         
         # Generate boxplot figure
-        boxplot_fig = px.box(qa_data, x='Site', 
+        boxplot_fig = px.box(qa_data, x='Location', 
                             y=selected_metric,
-                            color='Site',  # Add color based on the Site variable
+                            color='Location',  # Add color based on the Site variable
                             # points='all',  # Overlay all individual data points
                             title=f'{selected_metric} Distribution by Site')
 
         # Add scatter plot for all individual points
         boxplot_fig.add_trace(go.Scatter(
-            x=qa_data['Site'],
+            x=qa_data['Location'],
             y=qa_data[selected_metric],
             mode='markers',
             marker=dict(color='rgba(107,174,214,0.6)', size=6),

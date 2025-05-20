@@ -128,7 +128,7 @@ try:
         
 except Exception as e:
     print("Exception caught ", e)
-    continue
+    
 
 # List to hold each DataFrame
 dfs = []
@@ -150,6 +150,7 @@ with open('assets/site_phantom_key.json') as f:
 value_to_key = {"P"+v: k for k, v in site_map.items()}
 # Map "Site" column to get the keys
 df["Location"] = df["Site"].map(value_to_key)
+
 
 
 combined_df_reordered = df.loc[:, ['Site','Location','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']]
