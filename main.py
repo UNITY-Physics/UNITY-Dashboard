@@ -45,44 +45,47 @@ try:
                 for acquisition in acqs:
                     print(acquisition.label)
                     acquisition = acquisition.reload()
+
+                    if acquisition.files:
+                        print("Files: ", len(acquisition.files))
                 
-                    json_f = [f for f in acquisition.files if f.name.endswith(".json")]
-                    if json_f:
-                        json_f = json_f[0]
-                        acquisition.download_file(json_f.name, os.path.join(download_path, json_f.name))
-                        with open(os.path.join(download_path, json_f.name),'r') as jf:
-                            sw = json.load(jf)["SoftwareVersions"]
-                            print("SW: ", sw)
-                        
-                    if "FISP" in acquisition.label:
-                        
-                        fisp_f = [f for f in acquisition.files if f.name.endswith(".dcm") or f.name.endswith(".dicom") or f.name.endswith(".zip")][0]
-                        
-                        acquisition.download_file(fisp_f.name, os.path.join(download_path,fisp_f.name))
-                        
-                        if fisp_f.name.endswith('zip'):
-                            zip_path =  os.path.join(download_path,fisp_f.name)
-                            extract_dir = download_path
+                        json_f = [f for f in acquisition.files if f.name.endswith(".json")]
+                        if json_f:
+                            json_f = json_f[0]
+                            acquisition.download_file(json_f.name, os.path.join(download_path, json_f.name))
+                            with open(os.path.join(download_path, json_f.name),'r') as jf:
+                                sw = json.load(jf)["SoftwareVersions"]
+                                print("SW: ", sw)
                             
-                            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                                zip_ref.extractall(extract_dir)
-                
-                                for root, _, files in os.walk(extract_dir):
-                                    for file in files:
-                                        if file.lower().endswith(".dcm"):
-                                            dcm_path = os.path.join(download_path, root, file)
-                                            ds = pydicom.dcmread(dcm_path)
-                                            temperature = ds.get("PatientComments", None)
-                                            temp_d = re.findall(r'\d+', temperature)  
-                                            
-                                            #print("Temperature: ", temp_d)
-                                            
-                        
-                        else:
-                            ds = pydicom.dcmread(os.path.join(download_path, fisp_f.name))
-                            temperature = ds.get("PatientComments", None)
-                            temp_d = re.findall(r'\d+', temperature)                 
-                            #print("Temperature: ", temp_d)
+                        if "FISP" in acquisition.label:
+                            
+                            fisp_f = [f for f in acquisition.files if f.name.endswith(".dcm") or f.name.endswith(".dicom") or f.name.endswith(".zip")][0]
+                            
+                            acquisition.download_file(fisp_f.name, os.path.join(download_path,fisp_f.name))
+                            
+                            if fisp_f.name.endswith('zip'):
+                                zip_path =  os.path.join(download_path,fisp_f.name)
+                                extract_dir = download_path
+                                
+                                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                                    zip_ref.extractall(extract_dir)
+                    
+                                    for root, _, files in os.walk(extract_dir):
+                                        for file in files:
+                                            if file.lower().endswith(".dcm"):
+                                                dcm_path = os.path.join(download_path, root, file)
+                                                ds = pydicom.dcmread(dcm_path)
+                                                temperature = ds.get("PatientComments", None)
+                                                temp_d = re.findall(r'\d+', temperature)  
+                                                
+                                                #print("Temperature: ", temp_d)
+                                                
+                            
+                            else:
+                                ds = pydicom.dcmread(os.path.join(download_path, fisp_f.name))
+                                temperature = ds.get("PatientComments", None)
+                                temp_d = re.findall(r'\d+', temperature)                 
+                                #print("Temperature: ", temp_d)
             
             except Exception as e:
                             print("Exception caught ", e)
@@ -151,7 +154,7 @@ with open(os.path.join(os.getcwd(), 'src','assets','site_phantom_key.json')) as 
     site_phantom_key = json.load(f)
 
 # Invert the JSON: value -> key
-value_to_key = {"P"+v: k for k, v in site_map.items()}
+value_to_key = {"P"+v: k for k, v in site_phantom_key.items()}
 # Map "Site" column to get the keys
 df["Location"] = df["Site"].map(value_to_key)
 
