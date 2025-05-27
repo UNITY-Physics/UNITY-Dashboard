@@ -151,6 +151,7 @@ for filename in os.listdir(directory) :
         df = pd.read_csv(filepath)
         dfs.append(df)
         print(f"Appended {filename} with shape {df.shape}")
+        print('Resulting DataFrame shape:', df.shape)
 
 # Concatenate all DataFrames into one
 combined_df = pd.concat(dfs, ignore_index=True)
@@ -163,8 +164,8 @@ value_to_key = {"137-"+v: k for k, v in site_phantom_key.items()}
 # Map "Site" column to get the keys
 df["Location"] = df["Site"].map(value_to_key)
 
-
+df.to_csv(os.path.join(download_path, "RWE_PSNR.csv"),index=False)
 
 combined_df_reordered = df.loc[:, ['Site','Location','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']]
 print(combined_df_reordered)
-combined_df_reordered.to_csv(os.path.join(download_path, "RWE_PSNR.csv"),index=False)
+combined_df_reordered.to_csv(os.path.join(download_path, "RWE_PSNR_.csv"),index=False)
