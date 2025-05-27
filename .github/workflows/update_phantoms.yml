@@ -36,6 +36,6 @@ jobs:
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add src/data/all_phantoms.csv
-          git commit -m "Update all_phantoms.csv [automated]" || echo "No changes to commit"
+          git add src/data/RWE_PSNR.csv
+          git commit -m "Update RWE_PSNR.csv [automated]" || echo "No changes to commit"
           git push

@@ -32,7 +32,7 @@ print(f"This project has {len(subjects)} subjects.")
 download_path = os.path.join(os.getcwd(), 'src','data')
 
 try:
-    for subject in subjects[:3]:
+    for subject in subjects:
         all_rows = []
         subject = subject.reload()
         print(subject.label)
