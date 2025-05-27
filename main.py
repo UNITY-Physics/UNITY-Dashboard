@@ -44,11 +44,11 @@ try:
                 temp_d = None
                 if acqs:
                     for acquisition in acqs:
-                        print(acquisition.label)
+                        #print(acquisition.label)
                         acquisition = acquisition.reload()
 
                         if acquisition.files:
-                            print("Files: ", len(acquisition.files))
+                            #print("Files: ", len(acquisition.files))
                     
                             json_f = [f for f in acquisition.files if f.name.endswith(".json")]
                             if json_f:
@@ -56,7 +56,7 @@ try:
                                 acquisition.download_file(json_f.name, os.path.join(download_path, 'tmp', json_f.name))
                                 with open(os.path.join(download_path, 'tmp', json_f.name),'r') as jf:
                                     sw = json.load(jf)["SoftwareVersions"]
-                                    print("SW: ", sw)
+                                    #print("SW: ", sw)
                                 
                             if "FISP" in acquisition.label:
                                 
@@ -86,7 +86,7 @@ try:
                                     ds = pydicom.dcmread(os.path.join(download_path, 'tmp', fisp_f.name))
                                     temperature = ds.get("PatientComments", None)
                                     temp_d = re.findall(r'\d+', temperature)                 
-                                    print("Temperature: ", temp_d)
+                                    #print("Temperature: ", temp_d)
             
             except Exception as e:
                 print("Exception caught ", e)
@@ -130,8 +130,9 @@ try:
             df = pd.DataFrame.from_dict(all_rows)
             df = df.drop(df[df['PSNR'] == np.inf].index).reset_index()
             df['Temperature'] = df['Temperature'].apply(lambda v: v[0] if v else None)
-            print(df)
-            df[['Site','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']].to_csv(os.path.join(download_path, f'PSNR_{subject.label}.csv'),index=False)
+            print(df.shape)
+            df[['Site','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']].to_csv(os.path.join(download_path, "tmp", f'PSNR_{subject.label}.csv'),index=False)
+            print(f"Saved PSNR data for subject {subject.label} to CSV in path {download_path}")
         
 except Exception as e:
     print("Exception caught ", e)
@@ -139,13 +140,17 @@ except Exception as e:
 
 # List to hold each DataFrame
 dfs = []
-directory = download_path
+directory =  os.path.join(download_path, 'tmp')
+
 # Loop through each file in the directory
 for filename in os.listdir(directory) :
+    print(f"Processing file: {filename}")
+
     if filename.startswith('PSNR') and filename.endswith(".csv"):
-        filepath = os.path.join(download_path, filename)
+        filepath = os.path.join(directory, filename)
         df = pd.read_csv(filepath)
         dfs.append(df)
+        print(f"Appended {filename} with shape {df.shape}")
 
 # Concatenate all DataFrames into one
 combined_df = pd.concat(dfs, ignore_index=True)
@@ -162,4 +167,4 @@ df["Location"] = df["Site"].map(value_to_key)
 
 combined_df_reordered = df.loc[:, ['Site','Location','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']]
 print(combined_df_reordered)
-combined_df_reordered.to_csv(os.path.join(os.getcwd(),'src','data', "RWE_PSNR.csv"),index=False)
+combined_df_reordered.to_csv(os.path.join(download_path, "RWE_PSNR.csv"),index=False)
