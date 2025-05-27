@@ -29,10 +29,10 @@ print(f"Project: {fw_project.label}")
 
 subjects = fw_project.subjects()
 print(f"This project has {len(subjects)} subjects.")
-download_path = os.path.join(os.getcwd(), 'src','data', 'tmp')
+download_path = os.path.join(os.getcwd(), 'src','data')
 
 try:
-    for subject in subjects:
+    for subject in subjects[:3]:
         all_rows = []
         subject = subject.reload()
         print(subject.label)
@@ -53,8 +53,8 @@ try:
                             json_f = [f for f in acquisition.files if f.name.endswith(".json")]
                             if json_f:
                                 json_f = json_f[0]
-                                acquisition.download_file(json_f.name, os.path.join(download_path, json_f.name))
-                                with open(os.path.join(download_path, json_f.name),'r') as jf:
+                                acquisition.download_file(json_f.name, os.path.join(download_path, 'tmp', json_f.name))
+                                with open(os.path.join(download_path, 'tmp', json_f.name),'r') as jf:
                                     sw = json.load(jf)["SoftwareVersions"]
                                     print("SW: ", sw)
                                 
@@ -62,10 +62,10 @@ try:
                                 
                                 fisp_f = [f for f in acquisition.files if f.name.endswith(".dcm") or f.name.endswith(".dicom") or f.name.endswith(".zip")][0]
                                 
-                                acquisition.download_file(fisp_f.name, os.path.join(download_path,fisp_f.name))
+                                acquisition.download_file(fisp_f.name, os.path.join(download_path, 'tmp',fisp_f.name))
                                 
                                 if fisp_f.name.endswith('zip'):
-                                    zip_path =  os.path.join(download_path,fisp_f.name)
+                                    zip_path =  os.path.join(download_path, 'tmp',fisp_f.name)
                                     extract_dir = download_path
                                     
                                     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -74,7 +74,7 @@ try:
                                         for root, _, files in os.walk(extract_dir):
                                             for file in files:
                                                 if file.lower().endswith(".dcm"):
-                                                    dcm_path = os.path.join(download_path, root, file)
+                                                    dcm_path = os.path.join(download_path, 'tmp', root, file)
                                                     ds = pydicom.dcmread(dcm_path)
                                                     temperature = ds.get("PatientComments", None)
                                                     temp_d = re.findall(r'\d+', temperature)  
@@ -83,10 +83,10 @@ try:
                                                     
                                 
                                 else:
-                                    ds = pydicom.dcmread(os.path.join(download_path, fisp_f.name))
+                                    ds = pydicom.dcmread(os.path.join(download_path, 'tmp', fisp_f.name))
                                     temperature = ds.get("PatientComments", None)
                                     temp_d = re.findall(r'\d+', temperature)                 
-                                    #print("Temperature: ", temp_d)
+                                    print("Temperature: ", temp_d)
             
             except Exception as e:
                 print("Exception caught ", e)
@@ -106,7 +106,7 @@ try:
                     if csv_files:
                         try:
                             file = csv_files[0]
-                            path = os.path.join(download_path, f'{subject.label}_{session.label}_{file.name}')
+                            path = os.path.join(download_path, 'tmp', f'{subject.label}_{session.label}_{file.name}')
                             asys.download_file(file.name, path)
                             
                             df = pd.read_csv(path)
@@ -121,8 +121,6 @@ try:
                             d['Temperature'] = temp_d
 
                             all_rows.append(d)
-                            df = pd.DataFrame(all_rows)
-                            
 
                         except Exception as e:
                             print("Exception caught ", e)
@@ -132,6 +130,7 @@ try:
             df = pd.DataFrame.from_dict(all_rows)
             df = df.drop(df[df['PSNR'] == np.inf].index).reset_index()
             df['Temperature'] = df['Temperature'].apply(lambda v: v[0] if v else None)
+            print(df)
             df[['Site','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']].to_csv(os.path.join(download_path, f'PSNR_{subject.label}.csv'),index=False)
         
 except Exception as e:
@@ -143,7 +142,7 @@ dfs = []
 directory = download_path
 # Loop through each file in the directory
 for filename in os.listdir(directory) :
-    if filename.endswith(".csv"):
+    if filename.startswith('PSNR') and filename.endswith(".csv"):
         filepath = os.path.join(download_path, filename)
         df = pd.read_csv(filepath)
         dfs.append(df)
@@ -155,7 +154,7 @@ with open(os.path.join(os.getcwd(), 'src','assets','site_phantom_key.json')) as 
     site_phantom_key = json.load(f)
 
 # Invert the JSON: value -> key
-value_to_key = {"P"+v: k for k, v in site_phantom_key.items()}
+value_to_key = {"137-"+v: k for k, v in site_phantom_key.items()}
 # Map "Site" column to get the keys
 df["Location"] = df["Site"].map(value_to_key)
 
