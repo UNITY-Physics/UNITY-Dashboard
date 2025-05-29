@@ -13,7 +13,7 @@ import os
 
 # Load the synthetic data
 def load_data():
-    return pd.read_csv(os.path.join(os.getcwd(), "src/data/participant_results_data.csv"))
+    return pd.read_csv( "/data/participant_results_data.csv")
 
 df = load_data()
 unique_sites = df['site'].unique()

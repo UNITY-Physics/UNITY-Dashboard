@@ -8,7 +8,7 @@ import os
 
 # Example DataFrame for demonstration purposes
 # qa_data = pd.read_csv('data/phantom_qa_data.csv')
-qa_data = pd.read_csv(os.path.join(os.getcwd(), 'src/data/RWE_PSNR.csv')) #/Users/Hajer/unity/QA/UNITY-Dashboard/src/data/RWE_PSNR.csv
+qa_data = pd.read_csv('data/RWE_PSNR.csv') #/Users/Hajer/unity/QA/UNITY-Dashboard/src/data/RWE_PSNR.csv
 #qa_data['Date'] = pd.to_datetime(qa_data['Session'].str.split(" ")[0], format='%Y-%m-%d')  # Assuming 'Session' contains date information
 # Convert to datetime, replacing '_' with ':' in the time
  # Sort by Session for better time series visualization
@@ -60,7 +60,7 @@ def register_callbacks(app):
     def update_charts(selected_site, selected_metric):
         # Filter data for the selected site
         filtered_data = qa_data[qa_data['Location'] == selected_site]
-        filtered_data.to_csv(os.path.join(os.getcwd(), 'src','data', 'tmp_output.csv'), index=False)
+        filtered_data.to_csv(os.path.join('data', 'tmp_output.csv'), index=False)
 
         # Generate time series figure
         time_series_fig = px.line(
