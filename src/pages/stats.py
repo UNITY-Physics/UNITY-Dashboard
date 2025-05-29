@@ -5,11 +5,11 @@ import pandas as pd
 from dash import html, dcc, dash_table
 import io 
 import base64
-
+import os
 
 # Load the synthetic data
 def load_data():
-    return pd.read_csv("data/participant_results_data.csv")
+    return pd.read_csv(os.path.join(os.getcwd(),"src/data/participant_results_data.csv"))
 
 df = load_data()
 unique_sites = df['site'].unique()

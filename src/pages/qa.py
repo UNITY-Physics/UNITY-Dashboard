@@ -4,14 +4,26 @@ import plotly.express as px
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
+import os
 
 # Example DataFrame for demonstration purposes
 # qa_data = pd.read_csv('data/phantom_qa_data.csv')
-qa_data = pd.read_csv('data/RWE_PSNR_df.csv')
-qa_data['Date'] = pd.to_datetime(qa_data['Session'], format='%Y%m')
+qa_data = pd.read_csv(os.path.join(os.getcwd(), 'src/data/RWE_PSNR.csv')) #/Users/Hajer/unity/QA/UNITY-Dashboard/src/data/RWE_PSNR.csv
+#qa_data['Date'] = pd.to_datetime(qa_data['Session'].str.split(" ")[0], format='%Y-%m-%d')  # Assuming 'Session' contains date information
+# Convert to datetime, replacing '_' with ':' in the time
+ # Sort by Session for better time series visualization
+ 
+qa_data['timestamp'] = pd.to_datetime(qa_data['Session'].str.replace('_', ':'))
+qa_data = qa_data.sort_values(by=['Location', 'timestamp'])
 
 
-sites = qa_data['Location'].unique()
+# Create a new column with Year-Month
+qa_data['Date'] = qa_data['timestamp'].dt.strftime('%-d %b %y')  #.dt.to_period("M").astype(str)
+qa_data.dropna(subset=['Location'],inplace=True)
+
+qa_data['Location'] = qa_data['Location'].str.title()  # Replace spaces with underscores for consistency
+
+sites = sorted([str(site) for site in qa_data['Location'].dropna().unique()])  # Get unique sites and sort them
 # metrics = ['Scanner Frequency', 'Temperature', 'Timestamp', 'SNR', 'T2w contrast ratio', 'Geometric Distortion AP', 'Geometric Distortion SI', 'Geometric Distortion LR']  # Assuming these are the metrics
 metrics = ['PSNR', 'MSE', 'NMI', 'SSIM', 'Temperature']  # 'SoftwareVersion',
 
@@ -26,7 +38,7 @@ layout = html.Div([
 
     html.Div([
     html.B('Select a site:'),
-    dcc.Dropdown(id='qa-site-dropdown', options=[{'label': site, 'value': site} for site in qa_data['Location'].unique()], value=qa_data['Location'][0]),
+    dcc.Dropdown(id='qa-site-dropdown', options=[{'label': site, 'value': site} for site in sites], value=sites[0]),
     dcc.Graph(id='qa-time-series-graph')
     ], className='data-box')
 
@@ -48,7 +60,7 @@ def register_callbacks(app):
     def update_charts(selected_site, selected_metric):
         # Filter data for the selected site
         filtered_data = qa_data[qa_data['Location'] == selected_site]
-        filtered_data.to_csv('./data/tmp_output.csv', index=False)
+        filtered_data.to_csv(os.path.join(os.getcwd(), 'src','data', 'tmp_output.csv'), index=False)
 
         # Generate time series figure
         time_series_fig = px.line(

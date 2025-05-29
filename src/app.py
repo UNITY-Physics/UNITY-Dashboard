@@ -9,10 +9,11 @@ import pages.vis as vis_page
 import pages.stats as stats_page
 from pages.stats import site_filter_sidebar  # Assume unique_sites is defined or accessible globally
 import pandas as pd
+import os
 
 # Load the synthetic data
 def load_data():
-    return pd.read_csv("data/participant_results_data.csv")
+    return pd.read_csv(os.path.join(os.getcwd(), "src/data/participant_results_data.csv"))
 
 df = load_data()
 unique_sites = df['site'].unique()

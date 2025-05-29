@@ -14,7 +14,7 @@ layout = html.Div([
     html.P("""
         The source code for this app is available on GitHub
     """),
-    html.A("GitHub Repository", href="https://github.com/Nialljb/MR", target="_blank"),
+    html.A("GitHub Repository", href="https://github.com/UNITY-Physics/UNITY-Dashboard", target="_blank"),
 
     html.H3("UNITY Project Website"),
     html.P("""
