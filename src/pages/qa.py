@@ -21,7 +21,7 @@ qa_data = qa_data.sort_values(by=['Location', 'timestamp'])
 qa_data['Date'] = qa_data['timestamp'].dt.strftime('%-d %b %y')  #.dt.to_period("M").astype(str)
 qa_data.dropna(subset=['Location'],inplace=True)
 
-qa_data['Location'] = qa_data['Location'].str.title()  # Replace spaces with underscores for consistency
+qa_data['Location'] = qa_data['Location']  # Replace spaces with underscores for consistency
 
 sites = sorted([str(site) for site in qa_data['Location'].dropna().unique()])  # Get unique sites and sort them
 # metrics = ['Scanner Frequency', 'Temperature', 'Timestamp', 'SNR', 'T2w contrast ratio', 'Geometric Distortion AP', 'Geometric Distortion SI', 'Geometric Distortion LR']  # Assuming these are the metrics
