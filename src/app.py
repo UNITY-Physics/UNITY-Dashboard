@@ -7,6 +7,7 @@ import pages.about as about_page
 import pages.home as home_page
 import pages.vis as vis_page
 import pages.stats as stats_page
+import pages.pm as pm_page
 from pages.stats import site_filter_sidebar  # Assume unique_sites is defined or accessible globally
 import pandas as pd
 import os
@@ -60,6 +61,8 @@ sidebar = html.Div([
     html.Br(),
     dcc.Link(html.Div([html.I(className="fas fa-check-square"), ' QA']), href='/qa', style={'color': 'white', 'textDecoration': 'none', 'fontSize': '20px','padding': '10px','display': 'inline-block'}, className='nav-link'),
     html.Br(),
+    dcc.Link(html.Div([html.I(className="fas fa-cogs"), ' Project Management']), href='/pm', style={'color': 'white', 'textDecoration': 'none', 'fontSize': '20px','padding': '10px','display': 'inline-block'}, className='nav-link'),
+    html.Br(),
     dcc.Link(html.Div([html.I(className="fas fa-info-circle"), ' About']), href='/about', style={'color': 'white', 'textDecoration': 'none', 'fontSize': '20px','padding': '10px','display': 'inline-block'}, className='nav-link'),
     ], className='side-box',),
 ],
@@ -95,6 +98,8 @@ def display_page(pathname):
     if pathname == '/data-analysis':
         return [site_filter_sidebar(unique_sites), stats_page.layout]
     # Add conditions for other pages...
+    if pathname == '/pm':
+        return pm_page.layout
     else:
         return home_page.layout
 
@@ -102,6 +107,7 @@ def display_page(pathname):
 qa_page.register_callbacks(app)
 vis_page.register_callbacks(app)
 stats_page.register_callbacks(app)
+pm_page.register_callbacks(app)
 
 # Run the app
 if __name__ == '__main__':
