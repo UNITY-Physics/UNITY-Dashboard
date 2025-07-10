@@ -16,7 +16,6 @@
     "Korlebu":"0018",
     "Makerere":"0019",
     "Kintampo":"0020",
-    "Zomba":"0039",
     "Addis":"0022",
     "Baragwanatha":"0023",
     "Tygerberg":"0025",
@@ -26,8 +25,9 @@
     "AKU_field":"0029",
     "Lusaka":"0030",
     "Gaborone":"0031",
-    "tgen":"0036",
-    "Nairobi":"0042",
     "Kisumu":"0033",
+    "tgen":"0036",
+    "Zomba":"0039",
+    "Nairobi":"0042",
     "Chile":"0044"
 }
