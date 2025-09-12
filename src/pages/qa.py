@@ -69,7 +69,15 @@ def register_callbacks(app):
             y=selected_metric,
             markers=True,
             title=f'{selected_metric} Over Time for {selected_site}')
-        
+
+        time_series_fig.update_xaxes(
+            tickangle=45,
+            tickmode='auto',
+            nticks=10,
+            rangeslider_visible=False,
+            tickformat="%b %Y"
+        )
+
         # Generate boxplot figure
         boxplot_fig = px.box(qa_data, x='Location', 
                             y=selected_metric,
