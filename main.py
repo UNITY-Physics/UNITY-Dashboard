@@ -31,6 +31,13 @@ subjects = fw_project.subjects()
 print(f"This project has {len(subjects)} subjects.")
 download_path = os.path.join(os.getcwd(), 'src','data')
 
+# Clear any leftover PSNR_*.csv from a previous (possibly failed) run so the
+# final concatenation step below only ever sees this run's output.
+tmp_dir = os.path.join(download_path, 'tmp')
+os.makedirs(tmp_dir, exist_ok=True)
+for stale_csv in glob(os.path.join(tmp_dir, 'PSNR_*.csv')):
+    os.remove(stale_csv)
+
 try:
     for subject in subjects:
         all_rows = []
@@ -41,7 +48,10 @@ try:
                 session = session.reload()
                 acqs = [acq for acq in session.acquisitions() if "FISP" in acq.label or ("T2" in acq.label and "AXI" in acq.label)]
                 print(session.label)
+                # Reset per-session; otherwise a session with no JSON/temperature
+                # data would silently inherit the previous session's values.
                 temp_d = None
+                sw = None
                 if acqs:
                     for acquisition in acqs:
                         #print(acquisition.label)
@@ -99,7 +109,7 @@ try:
             for asys in filtered_analyses:
                 files = asys.files
                 for seg in ['T1', 'T2']:
-                    d = {'Site':subject.label, 'Session':session.label, 'PSNR':None}
+                    d = {'Site':subject.label, 'Session':session.label, 'Segment':seg, 'PSNR':None}
                     
                     
                     csv_files = [f for f in files if "PSNR" in f.name and f.name.endswith(".csv") and seg in f.name ]
@@ -131,7 +141,7 @@ try:
             df = df.drop(df[df['PSNR'] == np.inf].index).reset_index()
             df['Temperature'] = df['Temperature'].apply(lambda v: v[0] if v else None)
             print(df.shape)
-            df[['Site','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']].to_csv(os.path.join(download_path, "tmp", f'PSNR_{subject.label}.csv'),index=False)
+            df[['Site','Session','Segment','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']].to_csv(os.path.join(download_path, "tmp", f'PSNR_{subject.label}.csv'),index=False)
             print(f"Saved PSNR data for subject {subject.label} to CSV in path {download_path}")
         
 except Exception as e:
@@ -164,5 +174,5 @@ value_to_key = {"137-"+v: k for k, v in site_phantom_key.items()}
 # Map "Site" column to get the keys
 combined_df["Location"] = combined_df["Site"].map(value_to_key)
 
-combined_df_reordered = combined_df.loc[:, ['Site','Location','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']]
+combined_df_reordered = combined_df.loc[:, ['Site','Location','Session','Segment','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']]
 combined_df_reordered.to_csv(os.path.join(download_path, "RWE_PSNR.csv"),index=False)

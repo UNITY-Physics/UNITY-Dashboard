@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas tqdm numpy pydicom flywheel-sdk
+          pip install pandas tqdm numpy pydicom flywheel-sdk python-dotenv
           curl https://storage.googleapis.com/flywheel-dist/fw-cli/stable/install.sh | bash
 
       - name: Run the script
@@ -38,4 +38,21 @@ jobs:
           git config user.email github-actions@github.com
           git add src/data/RWE_PSNR.csv
           git commit -m "Update RWE_PSNR.csv [automated]" || echo "No changes to commit"
+          git push
+
+      - name: Run PSNR range check and send alert email
+        env:
+          SMTP_SENDER_EMAIL: ${{ secrets.SMTP_SENDER_EMAIL }}
+          SMTP_SENDER_NAME: ${{ secrets.SMTP_SENDER_NAME }}
+          SMTP_RECIPIENT_EMAIL: ${{ secrets.SMTP_RECIPIENT_EMAIL }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: python -m psnr_alert.run
+
+      - name: Commit and push updated baseline state
+        run: |
+          git add src/data/psnr_baseline.json
+          git commit -m "Update psnr_baseline.json [automated]" || echo "No changes to commit"
           git push

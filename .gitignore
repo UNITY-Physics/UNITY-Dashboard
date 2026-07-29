@@ -1,0 +1,13 @@
+# Environments
+env/
+.env
+psnr_alert/.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Data pulled/generated at runtime (RWE_PSNR.csv and psnr_baseline.json ARE
+# committed by the update_phantoms.yml workflow; only the scratch download
+# dir is ignored)
+src/data/tmp/
