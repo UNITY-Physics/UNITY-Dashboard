@@ -36,7 +36,7 @@ qa_data = qa_data.sort_values(by=['Location', 'timestamp'])
 qa_data['Date'] = qa_data['timestamp'].dt.strftime('%-d %b %y')  #.dt.to_period("M").astype(str)
 qa_data.dropna(subset=['Location'],inplace=True)
 
-qa_data['Location'] = qa_data['Location'].str.title()  # Replace spaces with underscores for consistency
+qa_data['Location'] = qa_data['Location']  # Replace spaces with underscores for consistency
 
 sites = sorted([str(site) for site in qa_data['Location'].dropna().unique()])  # Get unique sites and sort them
 # metrics = ['Scanner Frequency', 'Temperature', 'Timestamp', 'SNR', 'T2w contrast ratio', 'Geometric Distortion AP', 'Geometric Distortion SI', 'Geometric Distortion LR']  # Assuming these are the metrics
@@ -84,7 +84,15 @@ def register_callbacks(app):
             y=selected_metric,
             markers=True,
             title=f'{selected_metric} Over Time for {selected_site}')
-        
+
+        time_series_fig.update_xaxes(
+            tickangle=45,
+            tickmode='auto',
+            nticks=10,
+            rangeslider_visible=False,
+            tickformat="%b %Y"
+        )
+
         # Generate boxplot figure
         boxplot_fig = px.box(qa_data, x='Location', 
                             y=selected_metric,
