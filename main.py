@@ -31,6 +31,13 @@ subjects = fw_project.subjects()
 print(f"This project has {len(subjects)} subjects.")
 download_path = os.path.join(os.getcwd(), 'src','data')
 
+# Clear any leftover PSNR_*.csv from a previous (possibly failed) run so the
+# final concatenation step below only ever sees this run's output.
+tmp_dir = os.path.join(download_path, 'tmp')
+os.makedirs(tmp_dir, exist_ok=True)
+for stale_csv in glob(os.path.join(tmp_dir, 'PSNR_*.csv')):
+    os.remove(stale_csv)
+
 try:
     for subject in subjects:
         all_rows = []
@@ -41,7 +48,10 @@ try:
                 session = session.reload()
                 acqs = [acq for acq in session.acquisitions() if "FISP" in acq.label or ("T2" in acq.label and "AXI" in acq.label)]
                 print(session.label)
+                # Reset per-session; otherwise a session with no JSON/temperature
+                # data would silently inherit the previous session's values.
                 temp_d = None
+                sw = None
                 if acqs:
                     for acquisition in acqs:
                         #print(acquisition.label)
@@ -98,33 +108,31 @@ try:
             filtered_analyses = [a for a in asys if "ghoststats" in a.label]
             for asys in filtered_analyses:
                 files = asys.files
-                for seg in ['T1', 'T2']:
-                    d = {'Site':subject.label, 'Session':session.label, 'PSNR':None}
-                    
-                    
-                    csv_files = [f for f in files if "PSNR" in f.name and f.name.endswith(".csv") and seg in f.name ]
-                    if csv_files:
-                        try:
-                            file = csv_files[0]
-                            path = os.path.join(download_path, 'tmp', f'{subject.label}_{session.label}_{file.name}')
-                            asys.download_file(file.name, path)
-                            
-                            df = pd.read_csv(path)
-                            
-                            d['PSNR'] = df.iloc[0].PSNR
-                            d['MSE'] = df.iloc[0].MSE
-                            d['NMI'] = df.iloc[0].NMI
-                            d['SSIM'] = df.iloc[0].SSIM
+                d = {'Site':subject.label, 'Session':session.label, 'PSNR':None}
 
-                        
-                            d['SoftwareVersion'] = sw
-                            d['Temperature'] = temp_d
+                csv_files = [f for f in files if "PSNR" in f.name and f.name.endswith(".csv")]
+                if csv_files:
+                    try:
+                        file = csv_files[0]
+                        path = os.path.join(download_path, 'tmp', f'{subject.label}_{session.label}_{file.name}')
+                        asys.download_file(file.name, path)
 
-                            all_rows.append(d)
+                        df = pd.read_csv(path)
 
-                        except Exception as e:
-                            print("Exception caught ", e)
-                            continue     
+                        d['PSNR'] = df.iloc[0].PSNR
+                        d['MSE'] = df.iloc[0].MSE
+                        d['NMI'] = df.iloc[0].NMI
+                        d['SSIM'] = df.iloc[0].SSIM
+
+
+                        d['SoftwareVersion'] = sw
+                        d['Temperature'] = temp_d
+
+                        all_rows.append(d)
+
+                    except Exception as e:
+                        print("Exception caught ", e)
+                        continue
                     
         if all_rows:
             df = pd.DataFrame.from_dict(all_rows)

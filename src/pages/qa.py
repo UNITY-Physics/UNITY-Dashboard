@@ -5,15 +5,30 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 import os
+import re
 
 # Example DataFrame for demonstration purposes
 # qa_data = pd.read_csv('data/phantom_qa_data.csv')
 qa_data = pd.read_csv('data/RWE_PSNR.csv') #/Users/Hajer/unity/QA/UNITY-Dashboard/src/data/RWE_PSNR.csv
-#qa_data['Date'] = pd.to_datetime(qa_data['Session'].str.split(" ")[0], format='%Y-%m-%d')  # Assuming 'Session' contains date information
-# Convert to datetime, replacing '_' with ':' in the time
- # Sort by Session for better time series visualization
- 
-qa_data['timestamp'] = pd.to_datetime(qa_data['Session'].str.replace('_', ':'))
+
+# Session labels aren't consistently formatted: older sessions use
+# "YYYY-MM-DD HH_MM_SS", newer ones use "YYYY-MM-DD_HH_MM_SS". A blind
+# str.replace('_', ':') turns the date/time separator into a colon in the
+# second style, producing an unparseable string, so accept either separator
+# in either position. Rows that still don't match become NaT rather than
+# crashing the whole app at import time.
+_SESSION_TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})[ _](\d{2})[_:](\d{2})[_:](\d{2})$")
+
+
+def _normalize_session_timestamp(session_label):
+    match = _SESSION_TS_RE.match(str(session_label).strip())
+    if not match:
+        return None
+    date, hh, mm, ss = match.groups()
+    return f"{date} {hh}:{mm}:{ss}"
+
+
+qa_data['timestamp'] = pd.to_datetime(qa_data['Session'].map(_normalize_session_timestamp))
 qa_data = qa_data.sort_values(by=['Location', 'timestamp'])
 
 
