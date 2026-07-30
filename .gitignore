@@ -7,6 +7,9 @@ psnr_alert/.env
 __pycache__/
 *.pyc
 
+# macOS/Google Drive custom-folder-icon marker files
+Icon?
+
 # Data pulled/generated at runtime (RWE_PSNR.csv and psnr_baseline.json ARE
 # committed by the update_phantoms.yml workflow; only the scratch download
 # dir is ignored)

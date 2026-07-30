@@ -114,6 +114,33 @@ def test_load_history_requires_segment_column(tmp_path):
         load_history(str(csv_path))
 
 
+def test_load_history_handles_mixed_session_timestamp_formats(tmp_path):
+    """Real Flywheel session labels aren't consistently formatted: older
+    sessions look like "2023-11-07 09_59_15" (space, then underscores),
+    newer ones like "2026-07-28_08_12_26" (underscore throughout). A blind
+    str.replace('_', ':') corrupts the second style by also turning the
+    date/time separator into a colon, which broke the live workflow."""
+    csv_path = tmp_path / "mixed_formats.csv"
+    pd.DataFrame([
+        {"Location": "site_a", "Session": "2023-11-07 09_59_15", "Segment": "T1", "PSNR": 30.0},
+        {"Location": "site_a", "Session": "2026-07-28_08_12_26", "Segment": "T1", "PSNR": 31.0},
+    ]).to_csv(csv_path, index=False)
+
+    history = load_history(str(csv_path))
+    parsed = sorted(history["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S"))
+    assert parsed == ["2023-11-07 09:59:15", "2026-07-28 08:12:26"]
+
+
+def test_load_history_raises_on_unrecognized_timestamp_format(tmp_path):
+    csv_path = tmp_path / "bad_format.csv"
+    pd.DataFrame([
+        {"Location": "site_a", "Session": "not-a-timestamp", "Segment": "T1", "PSNR": 30.0},
+    ]).to_csv(csv_path, index=False)
+
+    with pytest.raises(ValueError, match="Unrecognized Session timestamp"):
+        load_history(str(csv_path))
+
+
 def test_leave_one_out_baselines_excludes_latest_point():
     df = _make_history()
     df["timestamp"] = pd.to_datetime(df["Session"].str.replace("_", ":"))

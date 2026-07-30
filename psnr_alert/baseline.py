@@ -9,10 +9,27 @@ point so that point can be judged against what was known before it.
 
 import json
 import os
+import re
 
 import pandas as pd
 
 REQUIRED_COLUMNS = {"Location", "Session", "Segment", "PSNR"}
+
+# Flywheel session labels aren't consistently formatted: older sessions use
+# "YYYY-MM-DD HH_MM_SS" (space before the time, underscores within it), newer
+# ones use "YYYY-MM-DD_HH_MM_SS" (underscore throughout). A blind
+# str.replace("_", ":") turns the date/time separator into a colon in the
+# second style, producing an unparseable string. Accept either separator in
+# either position and normalize to a single canonical form.
+_SESSION_TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})[ _](\d{2})[_:](\d{2})[_:](\d{2})$")
+
+
+def _normalize_session_timestamp(session_label):
+    match = _SESSION_TS_RE.match(str(session_label).strip())
+    if not match:
+        raise ValueError(f"Unrecognized Session timestamp format: {session_label!r}")
+    date, hh, mm, ss = match.groups()
+    return f"{date} {hh}:{mm}:{ss}"
 
 
 def load_history(csv_path):
@@ -34,7 +51,7 @@ def load_history(csv_path):
         )
 
     df = df.dropna(subset=["Location", "PSNR"]).copy()
-    df["timestamp"] = pd.to_datetime(df["Session"].str.replace("_", ":"))
+    df["timestamp"] = pd.to_datetime(df["Session"].map(_normalize_session_timestamp))
     df = df.sort_values(["Location", "Segment", "timestamp"]).reset_index(drop=True)
     return df
 
