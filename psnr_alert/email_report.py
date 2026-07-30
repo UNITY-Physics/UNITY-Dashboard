@@ -34,7 +34,7 @@ def build_subject(results):
 
 def build_html_table(results, k):
     rows_html = []
-    for r in sorted(results, key=lambda r: (r["site"], r["segment"])):
+    for r in sorted(results, key=lambda r: r["site"]):
         color = STATUS_COLORS[r["status"]]
         expected_range = "-"
         if r["baseline_mean"] is not None and r["baseline_std"] is not None:
@@ -47,7 +47,6 @@ def build_html_table(results, k):
         rows_html.append(f"""
             <tr>
               <td style="padding:6px 10px;border-bottom:1px solid #eee;">{r['site'].title()}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid #eee;">{r['segment']}</td>
               <td style="padding:6px 10px;border-bottom:1px solid #eee;color:{color};font-weight:bold;">{r['status']}</td>
               <td style="padding:6px 10px;border-bottom:1px solid #eee;">{_fmt(r['latest_value'])}</td>
               <td style="padding:6px 10px;border-bottom:1px solid #eee;">{expected_range}</td>
@@ -56,7 +55,7 @@ def build_html_table(results, k):
 
     n_flagged = sum(1 for r in results if r["status"] == FLAGGED)
     summary = (
-        f"{n_flagged} of {len(results)} site/segment entries flagged "
+        f"{n_flagged} of {len(results)} sites flagged "
         f"(expected range = site mean +/- {k} SD)."
     )
 
@@ -68,7 +67,6 @@ def build_html_table(results, k):
           <thead>
             <tr style="text-align:left;border-bottom:2px solid #333;">
               <th style="padding:6px 10px;">Site</th>
-              <th style="padding:6px 10px;">Segment</th>
               <th style="padding:6px 10px;">Status</th>
               <th style="padding:6px 10px;">Latest PSNR</th>
               <th style="padding:6px 10px;">Expected range</th>

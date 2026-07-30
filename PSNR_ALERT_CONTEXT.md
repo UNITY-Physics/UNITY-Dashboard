@@ -8,6 +8,15 @@ agent) with no memory of prior discussion can pick this up cold.
 for tests, and `.github/workflows/update_phantoms.yml` for the wiring. This document
 is kept as background/rationale (the `k` derivation in particular).
 
+**Correction (post-implementation):** §3.1 and §4 below originally treated the
+`for seg in ['T1', 'T2']` loop in `main.py` as a genuine T1-weighted/T2-weighted split
+that needed a `Segment` column to distinguish. That was wrong — the ghoststats PSNR
+output is a single per-session value; the loop was filename filtering, and in the real
+data only `"T2"` ever matches (`"T1"` never does). There is no per-segment baseline.
+`main.py` and `psnr_alert/` were reverted to key on `(Site, Session)` only, one row per
+site/session. The sections below are left as originally written for the historical
+record, with corrections noted inline where it matters (mainly §4).
+
 ## 1. Goal
 
 After the daily Flywheel pull refreshes `src/data/RWE_PSNR.csv`, evaluate each site's
@@ -17,8 +26,9 @@ table (one row per site: nominal or flagged) to a QA recipient list.
 ## 2. Current pipeline (as of this writing)
 
 - [main.py](main.py) connects to Flywheel, walks every subject/session in the
-  `UNITY-QA` project, downloads `ghoststats` PSNR/MSE/NMI/SSIM CSVs for the `T1` and
-  `T2` segments, and writes the full, **regenerated-from-scratch** result to
+  `UNITY-QA` project, downloads the `ghoststats` PSNR/MSE/NMI/SSIM CSV for each session
+  (one value per session — see the correction note above), and writes the full,
+  **regenerated-from-scratch** result to
   [src/data/RWE_PSNR.csv](src/data/RWE_PSNR.csv). It does not append — every run
   rebuilds the whole file.
 - [.github/workflows/update_phantoms.yml](.github/workflows/update_phantoms.yml) runs
@@ -38,14 +48,12 @@ table (one row per site: nominal or flagged) to a QA recipient list.
 These are real bugs in the current pipeline, independent of this feature, but this
 feature cannot be built correctly until they're fixed:
 
-1. **No `Segment` column.** [main.py:99-127](main.py#L99-L127) loops `for seg in
-   ['T1', 'T2']` and builds one row per segment, but never stores `seg` in the row
-   dict (`d = {'Site':..., 'Session':..., 'PSNR':None}`). Today, T1 and T2 PSNR values
-   for the same session are indistinguishable in the CSV — they just appear as two
-   unlabeled rows. **Fix:** add `d['Segment'] = seg`, and add `'Segment'` to the
-   column list in `combined_df_reordered` (main.py:167). The range check must key on
-   `(Location, Segment)`, not just `Location` — T1 and T2 PSNR have different natural
-   distributions and must not be pooled.
+1. ~~**No `Segment` column.**~~ **Superseded — see the correction note above.**
+   [main.py:99-127](main.py#L99-L127) originally looped `for seg in ['T1', 'T2']`,
+   which was mistaken for a genuine T1w/T2w split. In practice `"T1"` never matches any
+   ghoststats filename and `"T2"` always does — there's one PSNR value per session, not
+   two. The loop and the `Segment` column were both removed; the range check keys on
+   `Location` alone.
 2. **Stale `sw`/`temp_d` values.** [main.py:58,80,88](main.py#L58) — if a session has
    multiple acquisitions and a later one fails to yield a JSON or temperature, the row
    silently keeps the *previous* acquisition's value instead of `None`. Worth a fix
@@ -90,48 +98,32 @@ site_std`. This lands at a ~5% historical flag rate (a standard "outside the ~95
 band" operating point) — tight enough to be meaningful, loose enough not to flag on
 routine noise.
 
-### Important caveat — recompute after the Segment fix
+### Confirmed against live-pulled data
 
-This run pooled T1 and T2 together (per §3.1, they're not currently distinguishable),
-which inflates the apparent variance and makes this `k` somewhat conservative. **Once
-the `Segment` column exists**, rerun this same leave-one-out method split by
-`(Location, Segment)` pooled globally for the z-score distribution, and confirm `k =
-2.5` still lands near a 5% historical flag rate — adjust if the split changes the
-picture materially. The reusable derivation script:
+The "recompute once real Flywheel data comes in" caveat from the original version of
+this section has been done: `psnr_alert.derive_k` was rerun against the actual CSV
+produced by the first live `update_phantoms.yml` run (3126 rows, 16 sites with data,
+grouped by `Location` alone — see the correction note above). Result: **`k=2.5` still
+recommended**, now at a 3.81% historical flag rate (3020 z-scores):
 
-```python
-import pandas as pd, numpy as np
-
-df = pd.read_csv('src/data/RWE_PSNR.csv')
-df['timestamp'] = pd.to_datetime(df['Session'].str.replace('_', ':'))
-df = df.sort_values(['Location', 'Segment', 'timestamp']).reset_index(drop=True)
-
-MIN_HISTORY = 5
-zs = []
-for (site, seg), g in df.groupby(['Location', 'Segment']):
-    vals = g['PSNR'].values
-    for i in range(MIN_HISTORY, len(vals)):
-        prior = vals[:i]
-        mu, sd = prior.mean(), prior.std(ddof=1)
-        if sd == 0 or np.isnan(sd):
-            continue
-        zs.append((vals[i] - mu) / sd)
-
-zs = np.array(zs)
-for k in [1.5, 2, 2.5, 3, 3.5, 4]:
-    print(k, (np.abs(zs) > k).mean() * 100)
+```
+n z-scores: 3020
+  k=1.5: 13.02% flagged
+  k=2.0:  6.39% flagged
+  k=2.5:  3.81% flagged  <-- recommended
+  k=3.0:  2.78% flagged
+  k=3.5:  2.05% flagged
+  k=4.0:  1.72% flagged
 ```
 
-This should live in the new module (§5) as a `derive_k.py` / `--recompute-k` utility,
-not just a one-off — it should be easy to rerun as more data accumulates.
+`derive_k.py` (in `psnr_alert/`) is the reusable version of this — rerun it
+(`python -m psnr_alert.derive_k`) as more data accumulates.
 
 ### Minimum history
 
-Sites with fewer than `MIN_HISTORY = 5` prior sessions (for a given segment) don't
-have a trustworthy baseline yet. Today that's **2 of 16 sites** (`cardiff`: 1 row,
-`ubc`: 3 rows) at the unsegmented count — likely more once split by segment. Report
-these as `Insufficient history`, a third status distinct from `Nominal`/`Flagged`, not
-silently either one.
+Sites with fewer than `MIN_HISTORY = 5` prior sessions don't have a trustworthy
+baseline yet. Report these as `Insufficient history`, a third status distinct from
+`Nominal`/`Flagged`, not silently either one.
 
 ## 5. "Most recent, non-new data" requirement
 
@@ -141,17 +133,17 @@ value every run — not only sites that received a new session since the last ru
 Concretely, separate two concerns that were previously conflated:
 
 - **New-session detection** (was the primary driver before this correction): compares
-  today's `RWE_PSNR.csv` against a persisted "last seen session per `(Location,
-  Segment)`" state, used to (a) decide whether the baseline needs updating with a new
-  point, and (b) mark a row as "new since last report" for context in the email (e.g.
-  "no new data since 2026-07-14" vs "new session 2026-07-28").
+  today's `RWE_PSNR.csv` against a persisted "last seen session per `Location`" state,
+  used to (a) decide whether the baseline needs updating with a new point, and (b) mark
+  a row as "new since last report" for context in the email (e.g. "no new data since
+  2026-07-14" vs "new session 2026-07-28").
 - **Status evaluation** (must now run unconditionally, every report, for every site):
-  take each `(Location, Segment)`'s most recent row in `RWE_PSNR.csv` — regardless of
-  whether it's new this run — and classify it against that site's baseline (mean/SD
-  computed from its history *excluding* that latest point, i.e. still leave-one-out,
-  so a site's own latest value never contaminates its own comparison band). This means
-  a site with zero new activity still shows up as `Nominal`/`Flagged`/`Insufficient
-  history` in every email, using its last known value.
+  take each `Location`'s most recent row in `RWE_PSNR.csv` — regardless of whether it's
+  new this run — and classify it against that site's baseline (mean/SD computed from
+  its history *excluding* that latest point, i.e. still leave-one-out, so a site's own
+  latest value never contaminates its own comparison band). This means a site with zero
+  new activity still shows up as `Nominal`/`Flagged`/`Insufficient history` in every
+  email, using its last known value.
 
 So the email body is always a full site roster (all `Location` values present in
 `site_phantom_key.json` or seen historically), not a delta of what changed today.
@@ -201,35 +193,30 @@ now-deleted footprint:
 ```
 psnr_alert/
   __init__.py
-  baseline.py       # load/update psnr_baseline.json, leave-one-out mean/SD per (Location, Segment)
+  baseline.py       # load/update psnr_baseline.json, leave-one-out mean/SD per Location
   derive_k.py        # the recompute-k utility from §4, runnable standalone
   range_check.py     # classify each site's latest row: Nominal / Flagged / Insufficient history
   email_report.py    # HTML table renderer + send (adapted from fw-email-report/util/email.py)
   run.py              # orchestration: load CSV -> update baseline -> classify -> send email
   .env.example         # SMTP_* vars, following fw-email-report's naming
-src/data/psnr_baseline.json   # persisted per-(Location,Segment) history state, committed like RWE_PSNR.csv
+src/data/psnr_baseline.json   # persisted per-Location history state, committed like RWE_PSNR.csv
 ```
 
 ### `psnr_baseline.json` shape (sketch)
 
 ```json
 {
-  "st thomas": {
-    "T1": {"n": 74, "mean": 33.9, "std": 0.6, "last_session": "2023-06-21 09:56:57"},
-    "T2": {"n": 74, "mean": 31.2, "std": 0.8, "last_session": "2023-06-21 09:56:57"}
-  }
+  "st thomas": {"last_session": "2023-06-21 09:56:57"}
 }
 ```
 
-Store running `n`/`mean`/`std` (Welford's online algorithm, since the CSV is fully
-regenerated each run rather than truly incremental — simplest correct approach is
-actually to just recompute mean/std directly from all historical rows in
-`RWE_PSNR.csv` for that `(Location, Segment)` each run, excluding the latest point,
-rather than maintaining running stats — the CSV already has full history, so there's
-no need for incremental statistics here). The JSON state file's real job is just
-tracking `last_session` seen per `(Location, Segment)`, for the "new since last
-report" annotation in §5 — the mean/SD themselves can be recomputed fresh from the CSV
-every run since full history is always available.
+Mean/std are *not* stored here — since the CSV is fully regenerated each run rather
+than truly incremental, the simplest correct approach is to just recompute mean/std
+directly from all historical rows in `RWE_PSNR.csv` for that `Location` each run,
+excluding the latest point, rather than maintaining running stats (the CSV already has
+full history, so there's no need for incremental statistics). The JSON state file's
+only job is tracking `last_session` seen per `Location`, for the "new since last
+report" annotation in §5.
 
 ## 8. Workflow integration
 
@@ -244,9 +231,9 @@ secrets to the repo's GitHub Actions secrets, alongside the existing
 
 - Unit-test `range_check.py` classification against synthetic `(mean, std, value)`
   triples spanning nominal/flagged/insufficient-history cases.
-- Run `derive_k.py` against the real `RWE_PSNR.csv` (post-Segment-fix) and confirm the
-  flag rate at `k=2.5` is still in a sane single-digit-percent range before wiring it
-  into the live workflow.
+- Run `derive_k.py` against the real `RWE_PSNR.csv` and confirm the flag rate at
+  `k=2.5` is still in a sane single-digit-percent range before wiring it into the live
+  workflow. (Done — see §4.)
 - Dry-run `email_report.py` locally (via `fw-email-report/.env`-style local config, not
   committed) and visually check the rendered HTML table before enabling the scheduled
   send.

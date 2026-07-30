@@ -7,14 +7,13 @@ Notable changes to UNITY-Dashboard. Format loosely follows
 
 ### Added
 - **PSNR range-alert email** (`psnr_alert/`): after each Flywheel pull, every
-  site's most recent PSNR value (per T1/T2 segment) is classified as
-  `Nominal`, `Flagged`, or `Insufficient history` against that site's own
-  leave-one-out historical baseline, and a per-site HTML status table is
-  emailed to the QA recipient list. Every site in
-  `site_phantom_key.json` is reported every run, not just sites with new
-  data since the last run.
+  site's most recent PSNR value is classified as `Nominal`, `Flagged`, or
+  `Insufficient history` against that site's own leave-one-out historical
+  baseline, and a per-site HTML status table is emailed to the QA recipient
+  list. Every site in `site_phantom_key.json` is reported every run, not
+  just sites with new data since the last run.
   - `baseline.py` — loads/sorts PSNR history, computes leave-one-out
-    mean/std per `(site, segment)`, persists last-seen-session state
+    mean/std per site, persists last-seen-session state
     (`src/data/psnr_baseline.json`).
   - `range_check.py` — classification logic; `k=2.5`, `MIN_HISTORY=5`.
   - `derive_k.py` — reusable leave-one-out z-score method for re-deriving
@@ -32,9 +31,11 @@ Notable changes to UNITY-Dashboard. Format loosely follows
 
 ### Changed
 - `main.py`:
-  - Rows now record which segment (`T1`/`T2`) each PSNR value belongs to
-    (previously dropped, making T1 and T2 indistinguishable in
-    `RWE_PSNR.csv`).
+  - Simplified the ghoststats CSV lookup to one PSNR value per
+    `(session, analysis)` — the previous `for seg in ['T1', 'T2']` loop was
+    filename filtering, not a genuine T1w/T2w split (`"T1"` never matched
+    any real filename), so it added a misleading distinction without
+    adding information.
   - `SoftwareVersion`/`Temperature` are reset per session instead of
     silently carrying over a previous session's value when a session has
     no JSON/temperature data.

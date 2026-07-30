@@ -108,40 +108,38 @@ try:
             filtered_analyses = [a for a in asys if "ghoststats" in a.label]
             for asys in filtered_analyses:
                 files = asys.files
-                for seg in ['T1', 'T2']:
-                    d = {'Site':subject.label, 'Session':session.label, 'Segment':seg, 'PSNR':None}
-                    
-                    
-                    csv_files = [f for f in files if "PSNR" in f.name and f.name.endswith(".csv") and seg in f.name ]
-                    if csv_files:
-                        try:
-                            file = csv_files[0]
-                            path = os.path.join(download_path, 'tmp', f'{subject.label}_{session.label}_{file.name}')
-                            asys.download_file(file.name, path)
-                            
-                            df = pd.read_csv(path)
-                            
-                            d['PSNR'] = df.iloc[0].PSNR
-                            d['MSE'] = df.iloc[0].MSE
-                            d['NMI'] = df.iloc[0].NMI
-                            d['SSIM'] = df.iloc[0].SSIM
+                d = {'Site':subject.label, 'Session':session.label, 'PSNR':None}
 
-                        
-                            d['SoftwareVersion'] = sw
-                            d['Temperature'] = temp_d
+                csv_files = [f for f in files if "PSNR" in f.name and f.name.endswith(".csv")]
+                if csv_files:
+                    try:
+                        file = csv_files[0]
+                        path = os.path.join(download_path, 'tmp', f'{subject.label}_{session.label}_{file.name}')
+                        asys.download_file(file.name, path)
 
-                            all_rows.append(d)
+                        df = pd.read_csv(path)
 
-                        except Exception as e:
-                            print("Exception caught ", e)
-                            continue     
+                        d['PSNR'] = df.iloc[0].PSNR
+                        d['MSE'] = df.iloc[0].MSE
+                        d['NMI'] = df.iloc[0].NMI
+                        d['SSIM'] = df.iloc[0].SSIM
+
+
+                        d['SoftwareVersion'] = sw
+                        d['Temperature'] = temp_d
+
+                        all_rows.append(d)
+
+                    except Exception as e:
+                        print("Exception caught ", e)
+                        continue
                     
         if all_rows:
             df = pd.DataFrame.from_dict(all_rows)
             df = df.drop(df[df['PSNR'] == np.inf].index).reset_index()
             df['Temperature'] = df['Temperature'].apply(lambda v: v[0] if v else None)
             print(df.shape)
-            df[['Site','Session','Segment','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']].to_csv(os.path.join(download_path, "tmp", f'PSNR_{subject.label}.csv'),index=False)
+            df[['Site','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']].to_csv(os.path.join(download_path, "tmp", f'PSNR_{subject.label}.csv'),index=False)
             print(f"Saved PSNR data for subject {subject.label} to CSV in path {download_path}")
         
 except Exception as e:
@@ -174,5 +172,5 @@ value_to_key = {"137-"+v: k for k, v in site_phantom_key.items()}
 # Map "Site" column to get the keys
 combined_df["Location"] = combined_df["Site"].map(value_to_key)
 
-combined_df_reordered = combined_df.loc[:, ['Site','Location','Session','Segment','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']]
+combined_df_reordered = combined_df.loc[:, ['Site','Location','Session','MSE', 'PSNR', 'NMI', 'SSIM','SoftwareVersion','Temperature']]
 combined_df_reordered.to_csv(os.path.join(download_path, "RWE_PSNR.csv"),index=False)

@@ -1,7 +1,7 @@
 """Re-derive the global `k` (SD multiplier) from real PSNR history.
 
-Leave-one-out, expanding-window z-scores: for each (site, segment), sort by
-session timestamp, and for every point after a minimum warm-up compute
+Leave-one-out, expanding-window z-scores: for each site, sort by session
+timestamp, and for every point after a minimum warm-up compute
 z = (value - mean(prior values)) / std(prior values). Pooling these z-scores
 across all sites simulates "how surprising would this value have looked,
 given only what was known before it" — the same situation live alerting
@@ -20,13 +20,12 @@ DEFAULT_CANDIDATES = [1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
 
 
 def leave_one_out_zscores(df, min_history=5):
-    """Return the pooled array of leave-one-out z-scores across all (site, segment) groups.
+    """Return the pooled array of leave-one-out z-scores across all site groups.
 
-    `df` must already have a `timestamp` column and a `Segment` column
-    (see baseline.load_history).
+    `df` must already have a `timestamp` column (see baseline.load_history).
     """
     zs = []
-    for (_, _), group in df.groupby(["Location", "Segment"]):
+    for _, group in df.groupby("Location"):
         vals = group.sort_values("timestamp")["PSNR"].values
         for i in range(min_history, len(vals)):
             prior = vals[:i]

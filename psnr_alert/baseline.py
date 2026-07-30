@@ -1,10 +1,15 @@
-"""Load PSNR history and compute per-(site, segment) baseline statistics.
+"""Load PSNR history and compute per-site baseline statistics.
 
 The source CSV (`src/data/RWE_PSNR.csv`) is regenerated from scratch on every
 Flywheel pull, so it always contains full history. There is no need to
 maintain running/incremental statistics — baseline mean/std are recomputed
 fresh from the CSV on every run, leaving out each site's own most recent
 point so that point can be judged against what was known before it.
+
+Note: the ghoststats PSNR output is a single per-session value — main.py's
+`for seg in ['T1', 'T2']` loop was filename filtering, not a genuine T1/T2
+split (every real row matches "T2"; "T1" never matches anything), so there
+is no per-segment baseline here, just one per site.
 """
 
 import json
@@ -13,7 +18,7 @@ import re
 
 import pandas as pd
 
-REQUIRED_COLUMNS = {"Location", "Session", "Segment", "PSNR"}
+REQUIRED_COLUMNS = {"Location", "Session", "PSNR"}
 
 # Flywheel session labels aren't consistently formatted: older sessions use
 # "YYYY-MM-DD HH_MM_SS" (space before the time, underscores within it), newer
@@ -33,26 +38,16 @@ def _normalize_session_timestamp(session_label):
 
 
 def load_history(csv_path):
-    """Load and sort the PSNR history CSV.
-
-    Raises ValueError if the `Segment` column is missing — this means the
-    CSV predates the main.py fix that records which segment (T1/T2) each
-    row belongs to, and pooling them would silently corrupt the baseline.
-    """
+    """Load and sort the PSNR history CSV."""
     df = pd.read_csv(csv_path)
 
     missing = REQUIRED_COLUMNS - set(df.columns)
     if missing:
-        raise ValueError(
-            f"RWE_PSNR.csv is missing required column(s) {sorted(missing)}. "
-            "If 'Segment' is missing, this CSV predates the main.py fix that "
-            "records T1/T2 per row — rerun the Flywheel pull before running "
-            "the PSNR alert."
-        )
+        raise ValueError(f"RWE_PSNR.csv is missing required column(s) {sorted(missing)}.")
 
     df = df.dropna(subset=["Location", "PSNR"]).copy()
     df["timestamp"] = pd.to_datetime(df["Session"].map(_normalize_session_timestamp))
-    df = df.sort_values(["Location", "Segment", "timestamp"]).reset_index(drop=True)
+    df = df.sort_values(["Location", "timestamp"]).reset_index(drop=True)
     return df
 
 
@@ -64,15 +59,15 @@ def site_roster(site_phantom_key_path):
 
 
 def leave_one_out_baselines(df):
-    """For each (Location, Segment), compute stats from all-but-the-latest row.
+    """For each Location, compute stats from all-but-the-latest row.
 
-    Returns a dict keyed by (location, segment) with:
+    Returns a dict keyed by location with:
       baseline_n, baseline_mean, baseline_std,
       latest_value, latest_session, latest_timestamp
-    Sites/segments with only one row get baseline_n = 0 (no prior history).
+    Sites with only one row get baseline_n = 0 (no prior history).
     """
     results = {}
-    for (location, segment), group in df.groupby(["Location", "Segment"]):
+    for location, group in df.groupby("Location"):
         group = group.sort_values("timestamp")
         latest = group.iloc[-1]
         prior = group.iloc[:-1]
@@ -81,7 +76,7 @@ def leave_one_out_baselines(df):
         baseline_mean = prior["PSNR"].mean() if baseline_n > 0 else None
         baseline_std = prior["PSNR"].std(ddof=1) if baseline_n > 1 else None
 
-        results[(location, segment)] = {
+        results[location] = {
             "baseline_n": baseline_n,
             "baseline_mean": baseline_mean,
             "baseline_std": baseline_std,
@@ -97,19 +92,15 @@ def load_state(state_path):
     if not os.path.exists(state_path):
         return {}
     with open(state_path) as f:
-        raw = json.load(f)
-    # JSON keys are "location||segment" strings; expand back to tuple keys.
-    return {tuple(key.split("||")): value for key, value in raw.items()}
+        return json.load(f)
 
 
 def save_state(state_path, baselines):
-    """Persist last_session per (location, segment) for the next run."""
+    """Persist last_session per site for the next run."""
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     serializable = {
-        f"{location}||{segment}": {
-            "last_session": stats["latest_session"],
-        }
-        for (location, segment), stats in baselines.items()
+        location: {"last_session": stats["latest_session"]}
+        for location, stats in baselines.items()
     }
     with open(state_path, "w") as f:
         json.dump(serializable, f, indent=2, sort_keys=True)
