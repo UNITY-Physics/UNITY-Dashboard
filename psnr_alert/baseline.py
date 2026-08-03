@@ -20,21 +20,28 @@ import pandas as pd
 
 REQUIRED_COLUMNS = {"Location", "Session", "PSNR"}
 
-# Flywheel session labels aren't consistently formatted: older sessions use
-# "YYYY-MM-DD HH_MM_SS" (space before the time, underscores within it), newer
-# ones use "YYYY-MM-DD_HH_MM_SS" (underscore throughout). A blind
-# str.replace("_", ":") turns the date/time separator into a colon in the
-# second style, producing an unparseable string. Accept either separator in
-# either position and normalize to a single canonical form.
-_SESSION_TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})[ _](\d{2})[_:](\d{2})[_:](\d{2})$")
+# Flywheel session labels aren't consistently formatted: the date may be
+# dashed ("2024-02-09") or compact ("20240209"), the date/time separator may
+# be a space or underscore, and the time may be underscore/colon-joined
+# ("10_24_54") or compact ("102454"), optionally with fractional seconds
+# ("102454.000000"). Accept all observed variants and normalize to a single
+# canonical form. Fractional seconds are dropped: mixing fractional and
+# non-fractional strings in one Series breaks pandas' format inference, and
+# no site needs sub-second resolution here.
+_SESSION_TS_RE = re.compile(
+    r"^(\d{4})-?(\d{2})-?(\d{2})[ _]"
+    r"(?:(\d{2})[_:](\d{2})[_:](\d{2})|(\d{2})(\d{2})(\d{2}))"
+    r"(?:\.\d+)?$"
+)
 
 
 def _normalize_session_timestamp(session_label):
     match = _SESSION_TS_RE.match(str(session_label).strip())
     if not match:
         raise ValueError(f"Unrecognized Session timestamp format: {session_label!r}")
-    date, hh, mm, ss = match.groups()
-    return f"{date} {hh}:{mm}:{ss}"
+    year, month, day, hh1, mm1, ss1, hh2, mm2, ss2 = match.groups()
+    hh, mm, ss = (hh1, mm1, ss1) if hh1 is not None else (hh2, mm2, ss2)
+    return f"{year}-{month}-{day} {hh}:{mm}:{ss}"
 
 
 def load_history(csv_path):

@@ -130,6 +130,23 @@ def test_load_history_handles_mixed_session_timestamp_formats(tmp_path):
     assert parsed == ["2023-11-07 09:59:15", "2026-07-28 08:12:26"]
 
 
+def test_load_history_handles_compact_session_timestamp_formats(tmp_path):
+    """Some real Flywheel sessions use a compact date with no dashes, e.g.
+    "20240209_102454.000000" (fractional seconds, no separators in the time)
+    or "20241210_08_04_32" (compact date, underscore-joined time). These
+    formats broke the live workflow with 'Unrecognized Session timestamp'."""
+    csv_path = tmp_path / "compact_formats.csv"
+    pd.DataFrame([
+        {"Location": "site_a", "Session": "20240209_102454.000000", "PSNR": 30.0},
+        {"Location": "site_a", "Session": "20240215_101406", "PSNR": 30.5},
+        {"Location": "site_a", "Session": "20241210_08_04_32", "PSNR": 31.0},
+    ]).to_csv(csv_path, index=False)
+
+    history = load_history(str(csv_path))
+    parsed = sorted(history["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S"))
+    assert parsed == ["2024-02-09 10:24:54", "2024-02-15 10:14:06", "2024-12-10 08:04:32"]
+
+
 def test_load_history_raises_on_unrecognized_timestamp_format(tmp_path):
     csv_path = tmp_path / "bad_format.csv"
     pd.DataFrame([
