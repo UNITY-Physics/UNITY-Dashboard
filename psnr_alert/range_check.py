@@ -11,7 +11,7 @@ from psnr_alert.baseline import leave_one_out_baselines
 # From leave-one-out z-score analysis of src/data/RWE_PSNR.csv (3020 points,
 # 16 sites): k=2.5 lands at a ~3.8% historical flag rate. Recompute with
 # derive_k.py as more data accumulates.
-DEFAULT_K = 2.5
+DEFAULT_K = 2
 MIN_HISTORY = 5
 
 NOMINAL = "Nominal"
