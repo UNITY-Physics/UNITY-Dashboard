@@ -38,8 +38,8 @@ def build_html_table(results, k):
         color = STATUS_COLORS[r["status"]]
         expected_range = "-"
         if r["baseline_mean"] is not None and r["baseline_std"] is not None:
-            lo = 20 # r["baseline_mean"] - k * r["baseline_std"]
-            hi = 30 # r["baseline_mean"] + k * r["baseline_std"]
+            lo = 30 # r["baseline_mean"] - k * r["baseline_std"]
+            hi = 40 # r["baseline_mean"] + k * r["baseline_std"]
             expected_range = f"{lo:.2f} - {hi:.2f}"
 
         new_badge = " (new)" if r["is_new"] and r["latest_session"] else ""
